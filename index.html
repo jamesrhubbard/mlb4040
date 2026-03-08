@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLB 40/40 Tracker — @4040tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:    #FFC300;
+      --green:   #22C55E;
+      --amber:   #FB923C;
+      --red:     #DC3C3C;
+      --bg:      #080C14;
+      --bg-mid:  #0E1422;
+      --bg-card: #111827;
+      --border:  #1E2D45;
+      --text:    #E8EDF5;
+      --muted:   #6B7A94;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── SCANLINE EFFECT ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.03) 3px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px 60px;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,195,0,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(34,197,94,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 60% at 80% 60%, rgba(255,195,0,0.04) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* Baseball field lines */
+    .field-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.04;
+    }
+    .field-lines svg { width: 100%; height: 100%; }
+
+    .eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.1s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(72px, 14vw, 160px);
+      line-height: 0.9;
+      text-align: center;
+      letter-spacing: 0.02em;
+      background: linear-gradient(160deg, #fff 30%, rgba(255,195,0,0.7) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.2s forwards;
+    }
+
+    .hero-slash {
+      color: var(--gold);
+      -webkit-text-fill-color: var(--gold);
+    }
+
+    .hero-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(12px, 2vw, 16px);
+      color: var(--muted);
+      text-align: center;
+      margin-top: 24px;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.35s forwards;
+    }
+
+    .hero-sub span { color: var(--gold); }
+
+    .stat-strip {
+      display: flex;
+      gap: 0;
+      margin-top: 52px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.5s forwards;
+    }
+
+    .stat-item {
+      padding: 20px 36px;
+      text-align: center;
+      position: relative;
+    }
+    .stat-item + .stat-item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 4px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .cta-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      animation: fadeUp 0.7s ease 0.65s forwards;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--gold);
+      color: #08080C;
+    }
+    .btn-primary:hover { background: #FFD740; transform: translateY(-2px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeIn 1s ease 1.2s forwards;
+    }
+    .scroll-indicator span {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .scroll-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, var(--muted), transparent);
+      animation: scrollPulse 2s ease infinite;
+    }
+
+    /* ── SECTIONS ── */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 100px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(42px, 7vw, 72px);
+      line-height: 1;
+      margin-bottom: 20px;
+      letter-spacing: 0.02em;
+    }
+
+    .section-body {
+      font-size: 17px;
+      line-height: 1.8;
+      color: #A8B4C8;
+      max-width: 620px;
+    }
+
+    /* ── DIVIDER ── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 2px;
+      margin-top: 60px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .how-card {
+      background: var(--bg-card);
+      padding: 36px 32px;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .how-card:hover { background: #141e30; }
+    .how-card + .how-card { border-left: 1px solid var(--border); }
+
+    .how-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 64px;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 16px;
+      transition: color 0.2s;
+    }
+    .how-card:hover .how-num { color: var(--gold); opacity: 0.4; }
+
+    .how-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .how-body {
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--muted);
+    }
+
+    /* ── MONTE CARLO ── */
+    .mc-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+      margin-top: 60px;
+    }
+    @media (max-width: 768px) { .mc-layout { grid-template-columns: 1fr; } }
+
+    .mc-visual {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mc-visual::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, var(--gold), transparent);
+    }
+
+    .mc-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      color: var(--gold);
+      margin-bottom: 24px;
+      text-transform: uppercase;
+    }
+
+    /* Sim bars */
+    .sim-rows { display: flex; flex-direction: column; gap: 10px; }
+    .sim-row { display: flex; align-items: center; gap: 12px; }
+    .sim-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      width: 120px;
+      flex-shrink: 0;
+    }
+    .sim-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .sim-bar {
+      height: 100%;
+      border-radius: 4px;
+      position: relative;
+    }
+    .sim-bar.green  { background: var(--green); }
+    .sim-bar.amber  { background: var(--amber); }
+    .sim-bar.red    { background: var(--red); }
+    .sim-pct {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      width: 46px;
+      text-align: right;
+    }
+    .sim-pct.green { color: var(--green); }
+    .sim-pct.amber { color: var(--amber); }
+    .sim-pct.red   { color: var(--red); }
+
+    .sim-note {
+      margin-top: 24px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+
+    .mc-factors { display: flex; flex-direction: column; gap: 20px; }
+
+    .factor-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .factor-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+    }
+    .factor-text { flex: 1; }
+    .factor-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .factor-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── PLAYERS ── */
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 48px;
+    }
+
+    .player-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .player-card:hover { border-color: var(--gold); transform: translateY(-3px); }
+    .player-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+    }
+    .player-card.on-pace::before  { background: var(--green); }
+    .player-card.chasing::before  { background: var(--amber); }
+
+    .player-team {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .player-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.03em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+    .player-stats {
+      display: flex;
+      gap: 12px;
+    }
+    .ps {
+      display: flex;
+      flex-direction: column;
+    }
+    .ps-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      line-height: 1;
+    }
+    .ps-val.hr { color: var(--gold); }
+    .ps-val.sb { color: var(--green); }
+    .ps-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .player-badge {
+      display: inline-block;
+      margin-top: 12px;
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge-pace    { background: rgba(34,197,94,0.12); color: var(--green); }
+    .badge-chasing { background: rgba(251,146,60,0.12); color: var(--amber); }
+
+    /* ── GRAPHIC PREVIEW ── */
+    .graphic-section {
+      text-align: center;
+    }
+
+    .graphic-mockup {
+      margin: 60px auto 0;
+      max-width: 600px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,195,0,0.08);
+      position: relative;
+    }
+    .graphic-mockup-inner {
+      background: #080C14;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+
+    /* Mini graphic preview */
+    .mini-card {
+      width: 100%;
+      background: linear-gradient(160deg, #0E1828, #080C14);
+      border-radius: 10px;
+      border: 1px solid rgba(255,195,0,0.2);
+      overflow: hidden;
+      font-family: 'DM Mono', monospace;
+    }
+    .mini-header {
+      background: #06080F;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--gold);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--gold);
+    }
+    .mini-body { padding: 20px 16px; }
+    .mini-badge {
+      display: inline-block;
+      background: var(--green);
+      color: #08080C;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      margin-bottom: 10px;
+    }
+    .mini-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .mini-boxes { display: flex; gap: 12px; margin-bottom: 16px; }
+    .mini-box {
+      flex: 1;
+      background: #161E30;
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .mini-box-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 40px;
+      line-height: 1;
+      color: var(--gold);
+    }
+    .mini-box-lbl { font-size: 9px; letter-spacing: 0.15em; color: var(--muted); margin-top: 2px; }
+    .mini-bar-wrap { background: #1E2D45; border-radius: 4px; height: 5px; margin-top: 8px; }
+    .mini-bar-fill { background: var(--green); height: 5px; border-radius: 4px; }
+    .mini-pace-badge {
+      background: var(--green);
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: inline-block;
+      color: #08080C;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      font-family: 'Bebas Neue', sans-serif;
+    }
+    .mini-leaderboard { margin-top: 14px; }
+    .mini-lb-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--gold);
+      margin-bottom: 4px;
+    }
+    .mini-lb-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .mini-lb-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .mini-lb-name { color: var(--text); font-size: 11px; }
+    .mini-lb-prob { font-weight: 700; }
+    .mini-lb-prob.g { color: var(--green); }
+    .mini-lb-prob.a { color: var(--amber); }
+    .mini-lb-prob.r { color: var(--red); }
+
+    /* ── AUTOMATION ── */
+    .automation-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 48px;
+      margin-top: 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .automation-block::after {
+      content: '';
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(255,195,0,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .auto-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0;
+      margin-top: 32px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .auto-step {
+      padding: 24px 20px;
+      position: relative;
+    }
+    .auto-step + .auto-step { border-left: 1px solid var(--border); }
+    .auto-step-icon { font-size: 24px; margin-bottom: 10px; }
+    .auto-step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .auto-step-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .arrow-connector {
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gold);
+      font-size: 16px;
+      z-index: 2;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .footer-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .footer-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+    }
+    .footer-copy {
+      margin-top: 32px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── CLUB BANNER ── */
+    .club-banner {
+      background: linear-gradient(135deg, rgba(255,195,0,0.08) 0%, transparent 60%);
+      border: 1px solid rgba(255,195,0,0.2);
+      border-radius: 12px;
+      padding: 32px 40px;
+      margin-bottom: 60px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .club-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 80px;
+      color: var(--gold);
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .club-text h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+    .club-text p { font-size: 15px; color: var(--muted); line-height: 1.7; }
+    .club-members {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .club-member {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 600px) {
+      .stat-item { padding: 16px 20px; }
+      .how-card + .how-card { border-left: none; border-top: 1px solid var(--border); }
+      .automation-block { padding: 28px; }
+      .auto-step + .auto-step { border-left: none; border-top: 1px solid var(--border); }
+      .club-members { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="field-lines">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <circle cx="600" cy="900" r="700" fill="none" stroke="white" stroke-width="1"/>
+      <circle cx="600" cy="900" r="500" fill="none" stroke="white" stroke-width="0.5"/>
+      <line x1="600" y1="900" x2="50"  y2="200" stroke="white" stroke-width="0.5"/>
+      <line x1="600" y1="900" x2="1150" y2="200" stroke="white" stroke-width="0.5"/>
+      <line x1="600" y1="900" x2="600" y2="0" stroke="white" stroke-width="0.3"/>
+    </svg>
+  </div>
+
+  <p class="eyebrow">⚾ 2026 MLB Season · Live Tracking</p>
+
+  <h1 class="hero-title">
+    MLB<br><span class="hero-slash">40</span>/<span class="hero-slash">40</span><br>TRACKER
+  </h1>
+
+  <p class="hero-sub">
+    Automated. Real-time. Monte Carlo powered.<br>
+    Follow <span>@4040tracker</span> on X/Twitter
+  </p>
+
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-num">12</div>
+      <div class="stat-label">Players Watched</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">10K</div>
+      <div class="stat-label">Simulations / Poll</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;1<span style="font-size:24px">min</span></div>
+      <div class="stat-label">Time To Tweet</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">6</div>
+      <div class="stat-label">All-Time 40/40 Members</div>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <a href="https://twitter.com/4040tracker" class="btn btn-primary" target="_blank">↗ Follow @4040tracker</a>
+    <a href="#how" class="btn btn-ghost">How It Works ↓</a>
+  </div>
+
+  <div class="scroll-indicator">
+    <span>Scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── THE CLUB ── -->
+<section id="club" class="reveal">
+  <p class="section-label">The Rarest Feat in Baseball</p>
+  <h2 class="section-title">The 40/40 Club</h2>
+  <div class="club-banner">
+    <div class="club-num">6</div>
+    <div class="club-text">
+      <h3>Members in MLB History</h3>
+      <p>40 home runs AND 40 stolen bases in the same season. Only six players have ever done it — including Acuña's historic 41/73 in 2023 and Ohtani's 50/50 in 2024. This bot watches every active contender — live — all season long.</p>
+    </div>
+    <div class="club-members">
+      <div class="club-member">⚾ José Canseco · 1988 · 42 HR / 40 SB</div>
+      <div class="club-member">⚾ Barry Bonds · 1996 · 42 HR / 40 SB</div>
+      <div class="club-member">⚾ Alex Rodriguez · 1998 · 42 HR / 46 SB</div>
+      <div class="club-member">⚾ Alfonso Soriano · 2006 · 46 HR / 41 SB</div>
+      <div class="club-member">⚾ Ronald Acuña Jr. · 2023 · 41 HR / 73 SB 🐐</div>
+      <div class="club-member">⚾ Shohei Ohtani · 2024 · 54 HR / 59 SB 🐐</div>
+    </div>
+  </div>
+  <p class="section-body">The bot automatically identifies any player projecting 30+ HR and 30+ SB on a 162-game pace and adds them to the monitoring pool — so no contender is ever missed.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how" class="reveal">
+  <p class="section-label">Architecture</p>
+  <h2 class="section-title">How It Works</h2>
+
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-num">01</div>
+      <div class="how-title">MLB API Poll</div>
+      <div class="how-body">The bot polls the free MLB Stats API continuously during game hours — detecting every home run and stolen base within seconds of it happening on the field.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-num">02</div>
+      <div class="how-title">Event Detection</div>
+      <div class="how-body">New stats are compared against state saved in Google Cloud Firestore. Any new HR or SB triggers an event. Milestones (10, 20, 30, 35, 38, 39, 40) get special treatment.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-num">03</div>
+      <div class="how-title">Monte Carlo</div>
+      <div class="how-body">10,000 season simulations run for every player on every poll. Each sim applies 8+ real-world factors to calculate a true probability % — not just pace math.</div>
+    </div>
+    <div class="how-card">
+      <div class="how-num">04</div>
+      <div class="how-title">Graphic + Tweet</div>
+      <div class="how-body">A custom 1200×1200 PNG is generated with the triggering player's card on top and the full ranked leaderboard below. Auto-posted to @4040tracker instantly.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── MONTE CARLO ── -->
+<section id="factors" class="reveal">
+  <p class="section-label">The Engine</p>
+  <h2 class="section-title">Monte Carlo Simulation</h2>
+
+  <div class="mc-layout">
+    <div class="mc-visual">
+      <div class="mc-title">▸ Live Probability Rankings</div>
+      <div class="sim-rows">
+        <div class="sim-row">
+          <div class="sim-name">Witt Jr.</div>
+          <div class="sim-bar-wrap"><div class="sim-bar green" style="width:72%"></div></div>
+          <div class="sim-pct green">72.4%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">Acuña Jr.</div>
+          <div class="sim-bar-wrap"><div class="sim-bar green" style="width:61%"></div></div>
+          <div class="sim-pct green">61.2%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">Carroll</div>
+          <div class="sim-bar-wrap"><div class="sim-bar amber" style="width:44%"></div></div>
+          <div class="sim-pct amber">44.8%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">De La Cruz</div>
+          <div class="sim-bar-wrap"><div class="sim-bar amber" style="width:38%"></div></div>
+          <div class="sim-pct amber">38.1%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">Rodríguez</div>
+          <div class="sim-bar-wrap"><div class="sim-bar amber" style="width:31%"></div></div>
+          <div class="sim-pct amber">31.5%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">Ohtani</div>
+          <div class="sim-bar-wrap"><div class="sim-bar red" style="width:18%"></div></div>
+          <div class="sim-pct red">18.2%</div>
+        </div>
+        <div class="sim-row">
+          <div class="sim-name">Tucker</div>
+          <div class="sim-bar-wrap"><div class="sim-bar red" style="width:12%"></div></div>
+          <div class="sim-pct red">12.1%</div>
+        </div>
+      </div>
+      <div class="sim-note">10,000 SIMULATIONS · UPDATES EVERY 5 MIN · 2026 SEASON DATA</div>
+    </div>
+
+    <div class="mc-factors">
+      <div class="factor-row">
+        <div class="factor-icon">📈</div>
+        <div class="factor-text">
+          <div class="factor-name">Age Curve</div>
+          <div class="factor-desc">HR peak at 27–30. SB peak at 24–27. Multipliers applied per age.</div>
+        </div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-icon">🏟️</div>
+        <div class="factor-text">
+          <div class="factor-name">Park Factors</div>
+          <div class="factor-desc">All 30 parks rated for HR and SB. Coors +32%. Petco -6%. Applied to home games.</div>
+        </div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-icon">📅</div>
+        <div class="factor-text">
+          <div class="factor-name">Schedule Difficulty</div>
+          <div class="factor-desc">Remaining opponent ERA and SB-allowed rate factor into each player's projection.</div>
+        </div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-icon">🩺</div>
+        <div class="factor-text">
+          <div class="factor-name">Injury Risk</div>
+          <div class="factor-desc">IL history, surgery flags, recurrence probability, and expected days lost all modeled per player.</div>
+        </div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-icon">🔄</div>
+        <div class="factor-text">
+          <div class="factor-name">Career Regression</div>
+          <div class="factor-desc">Current pace blended with 3-year weighted history. Recent seasons weighted 3x vs 1x.</div>
+        </div>
+      </div>
+      <div class="factor-row">
+        <div class="factor-icon">🎲</div>
+        <div class="factor-text">
+          <div class="factor-name">Variance + Team Context</div>
+          <div class="factor-desc">Year-to-year CV per stat. Plus green-light freedom and lineup protection per team.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── PLAYERS ── -->
+<section id="players" class="reveal">
+  <p class="section-label">2026 Monitoring Pool</p>
+  <h2 class="section-title">Watched Players</h2>
+  <p class="section-body">Any player projecting 30+ HR AND 30+ SB on pace automatically enters the pool. The pool updates live — players are added or dropped as the season progresses.</p>
+
+  <div class="players-grid">
+    <div class="player-card on-pace">
+      <div class="player-team">KCR</div>
+      <div class="player-name">Bobby Witt Jr.</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">18</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">21</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-pace">On Pace</span>
+    </div>
+    <div class="player-card on-pace">
+      <div class="player-team">ATL</div>
+      <div class="player-name">Ronald Acuña Jr.</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">16</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">19</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-pace">On Pace</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">ARI</div>
+      <div class="player-name">Corbin Carroll</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">14</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">23</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">SEA</div>
+      <div class="player-name">Julio Rodríguez</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">15</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">18</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">CIN</div>
+      <div class="player-name">Elly De La Cruz</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">13</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">20</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">LAD</div>
+      <div class="player-name">Shohei Ohtani</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">20</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">11</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">MIN</div>
+      <div class="player-name">Jarren Duran</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">12</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">19</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+    <div class="player-card chasing">
+      <div class="player-team">TEX</div>
+      <div class="player-name">Adolis García</div>
+      <div class="player-stats">
+        <div class="ps"><div class="ps-val hr">11</div><div class="ps-label">HR</div></div>
+        <div class="ps"><div class="ps-val sb">16</div><div class="ps-label">SB</div></div>
+      </div>
+      <span class="player-badge badge-chasing">Chasing</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── GRAPHIC PREVIEW ── -->
+<section id="graphic" class="reveal graphic-section">
+  <p class="section-label">Auto-Generated</p>
+  <h2 class="section-title">The Tweet Graphic</h2>
+  <p class="section-body" style="margin: 0 auto 0;">Every event generates a custom 1200×1200 PNG. Triggering player on top, full probability leaderboard below. Posted automatically to <strong>@4040tracker</strong>.</p>
+
+  <div class="graphic-mockup">
+    <div class="graphic-mockup-inner">
+      <div class="mini-card">
+        <div class="mini-header">
+          <span>⚾ MLB 40/40 TRACKER</span>
+          <span style="color: var(--muted); font-size:10px">2026 MLB SEASON</span>
+        </div>
+        <div class="mini-body">
+          <div class="mini-badge">STOLEN BASE #21</div>
+          <div class="mini-name">BOBBY WITT JR.</div>
+          <div class="mini-boxes">
+            <div class="mini-box">
+              <div class="mini-box-val" style="color:var(--gold)">18</div>
+              <div class="mini-box-lbl">HOME RUNS</div>
+              <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:45%; background:var(--amber)"></div></div>
+            </div>
+            <div class="mini-box">
+              <div class="mini-box-val" style="color:var(--green)">21</div>
+              <div class="mini-box-lbl">STOLEN BASES</div>
+              <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:52%"></div></div>
+            </div>
+            <div class="mini-box" style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px">
+              <div class="mini-pace-badge">ON PACE</div>
+              <div style="font-size:10px;color:var(--muted)">HR: 41 · SB: 47</div>
+            </div>
+          </div>
+          <div class="mini-leaderboard">
+            <div class="mini-lb-header"><span>PLAYER</span><span>HR / SB</span><span>CHANCE</span></div>
+            <div class="mini-lb-row"><span class="mini-lb-name">#1 Witt Jr.</span><span style="color:var(--muted);font-size:10px">18/21</span><span class="mini-lb-prob g">72.4%</span></div>
+            <div class="mini-lb-row"><span class="mini-lb-name">#2 Acuña Jr.</span><span style="color:var(--muted);font-size:10px">16/19</span><span class="mini-lb-prob g">61.2%</span></div>
+            <div class="mini-lb-row"><span class="mini-lb-name">#3 Carroll</span><span style="color:var(--muted);font-size:10px">14/23</span><span class="mini-lb-prob a">44.8%</span></div>
+            <div class="mini-lb-row"><span class="mini-lb-name">#4 De La Cruz</span><span style="color:var(--muted);font-size:10px">13/20</span><span class="mini-lb-prob a">38.1%</span></div>
+            <div class="mini-lb-row"><span class="mini-lb-name">#5 Rodríguez</span><span style="color:var(--muted);font-size:10px">15/18</span><span class="mini-lb-prob a">31.5%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── AUTOMATION ── -->
+<section id="tech" class="reveal">
+  <p class="section-label">Infrastructure</p>
+  <h2 class="section-title">Fully Automated</h2>
+  <p class="section-body">Zero manual intervention required. The entire pipeline runs serverlessly on Google Cloud — it wakes up, checks the data, and goes back to sleep.</p>
+
+  <div class="automation-block">
+    <div class="auto-steps">
+      <div class="auto-step">
+        <div class="auto-step-icon">⏰</div>
+        <div class="auto-step-title">Cloud Scheduler</div>
+        <div class="auto-step-desc">Polls the MLB Stats API live during game hours — catches every HR and SB in near real-time</div>
+        <div class="arrow-connector">→</div>
+      </div>
+      <div class="auto-step">
+        <div class="auto-step-icon">☁️</div>
+        <div class="auto-step-title">Cloud Run</div>
+        <div class="auto-step-desc">Scale-to-zero Flask app wakes up, hits the MLB API, runs simulations</div>
+        <div class="arrow-connector">→</div>
+      </div>
+      <div class="auto-step">
+        <div class="auto-step-icon">🗄️</div>
+        <div class="auto-step-title">Firestore</div>
+        <div class="auto-step-desc">State persisted between polls — prevents duplicate tweets across restarts</div>
+        <div class="arrow-connector">→</div>
+      </div>
+      <div class="auto-step">
+        <div class="auto-step-icon">🖼️</div>
+        <div class="auto-step-title">Graphic Engine</div>
+        <div class="auto-step-desc">Pillow renders a 1200×1200 PNG with player card + ranked leaderboard</div>
+        <div class="arrow-connector">→</div>
+      </div>
+      <div class="auto-step">
+        <div class="auto-step-icon">🐦</div>
+        <div class="auto-step-title">Tweepy → X</div>
+        <div class="auto-step-desc">Image uploaded via v1 API, tweet posted via v2. Done.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:32px; display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 20px; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted);">
+        🔄 Auto season-reset on March 1
+      </div>
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 20px; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted);">
+        🚨 Milestone tweets at HR/SB 10, 20, 30, 35, 38, 39, 40
+      </div>
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 20px; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted);">
+        🏆 Special clinch tweet on 40/40
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-title">@4040tracker</div>
+  <div class="footer-sub">Follow on X/Twitter · Data via MLB Stats API · Built with Python + Google Cloud</div>
+  <div class="footer-copy">
+    MLB 40/40 TRACKER · 2026 SEASON · MONTE CARLO {N_SIMULATIONS}K SIMS · NOT AFFILIATED WITH MLB
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(r => observer.observe(r));
+
+  // Animate sim bars on scroll into view
+  const simBars = document.querySelectorAll('.sim-bar');
+  const barObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const target = e.target;
+        const finalWidth = target.style.width;
+        target.style.width = '0%';
+        target.style.transition = 'width 1s ease 0.3s';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            target.style.width = finalWidth;
+          });
+        });
+        barObserver.unobserve(target);
+      }
+    });
+  }, { threshold: 0.5 });
+  simBars.forEach(b => barObserver.observe(b));
+</script>
+
+</body>
+</html>
